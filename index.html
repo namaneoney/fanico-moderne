@@ -412,7 +412,7 @@ const money = n => (Number(n) || 0).toLocaleString("fr-FR") + " FCFA";
 const today = () => new Date().toISOString().slice(0, 10);
 const fdate = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—";
 const reste = o => Math.max(0, (Number(o.aPayer) || 0) - (Number(o.dejaPaye) || 0));
-const calcAPayer = o => (o.lavage ? Number(o.prixLavage) || 0 : 0) + (o.repassage ? Number(o.prixRepassage) || 0 : 0);
+const calcAPayer = o => (o.lavage ? Number(o.prixLavage) || 0 : 0) + (o.repassage ? Number(o.prixRepassage) || 0 : 0) + (o.service ? Number(o.prixService) || 0 : 0);
 const waLink = (tel, txt) => {
   let t = (tel || "").replace(/\D/g, "");
   if (t.length === 10) t = "225" + t;
@@ -424,12 +424,15 @@ const fromB64 = s => decodeURIComponent(escape(atob(s.replace(/\n/g, ""))));
 
 // ---------- data.md : fichier texte du projet sur GitHub ----------
 const EMPTY = () => ({
+  seq: 0,
   orders: [],
   clients: {}
 });
+// Référence unique de commande (indépendante du code client) : CMD-AAAA-00001
+const makeRef = n => `CMD-${new Date().getFullYear()}-${String(n).padStart(5, "0")}`;
 const cell = v => String(v ?? "").replace(/\|/g, "/").replace(/\n/g, " ");
 function toMd(d) {
-  const o = d.orders.map(x => `| ${cell(x.nom)} | ${cell(x.contact)} | ${x.status === "termine" ? "Terminé" : "En attente"} | ${cell(x.depot)} | ${cell(x.retrait)} | ${cell(x.details?.join(", "))} | ${cell(x.aPayer)} | ${reste(x)} | ${cell(x.code || "")} | ${x.pos ? x.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
+  const o = d.orders.map(x => `| ${cell(x.ref || "")} | ${cell(x.nom)} | ${cell(x.contact)} | ${x.status === "termine" ? "Terminé" : "En attente"} | ${cell(x.depot)} | ${cell(x.retrait)} | ${cell(x.details?.join(", "))} | ${cell(x.aPayer)} | ${reste(x)} | ${cell(x.code || "")} | ${x.pos ? x.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
   const c = Object.entries(d.clients).map(([k, v]) => `| ${k} | ${cell(v.nom)} | ${cell(v.contact)} | ${v.pos ? v.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
   return `# Données – Pressing Fanico Moderne
 
@@ -438,8 +441,8 @@ function toMd(d) {
 
 ## Commandes (${d.orders.length})
 
-| Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
-|---|---|---|---|---|---|---|---|---|---|
+| Référence | Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
+|---|---|---|---|---|---|---|---|---|---|---|
 ${o}
 
 ## Codes clients (${Object.keys(d.clients).length})
@@ -460,6 +463,7 @@ function parseMd(t) {
   if (!m) return EMPTY();
   const d = JSON.parse(m[1]);
   return {
+    seq: d.seq || 0,
     orders: d.orders || [],
     clients: d.clients || {}
   };
@@ -636,7 +640,7 @@ function Receipt({
     href: "tel:" + PRESSING_TEL
   }, PRESSING_TEL)), /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
     className: "badge " + (done ? "ter" : "att")
-  }, done ? "✔ Terminé" : "⏳ En attente"))), /*#__PURE__*/React.createElement("dl", null, /*#__PURE__*/React.createElement("dt", null, "Client"), /*#__PURE__*/React.createElement("dd", null, o.nom || "—"), /*#__PURE__*/React.createElement("dt", null, "Contact"), /*#__PURE__*/React.createElement("dd", null, o.contact || "—"), /*#__PURE__*/React.createElement("dt", null, "Date de d\xE9p\xF4t"), /*#__PURE__*/React.createElement("dd", null, fdate(o.depot)), /*#__PURE__*/React.createElement("dt", null, "Date de retrait"), /*#__PURE__*/React.createElement("dd", null, fdate(o.retrait)), /*#__PURE__*/React.createElement("dt", null, "Service"), /*#__PURE__*/React.createElement("dd", null, [o.lavage && "Lavage", o.repassage && "Repassage"].filter(Boolean).join(" + ") || "—"), /*#__PURE__*/React.createElement("dt", null, "Poids"), /*#__PURE__*/React.createElement("dd", null, o.kg ? o.kg + " Kg" : "—"), o.lavage && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Prix lavage"), /*#__PURE__*/React.createElement("dd", null, money(o.prixLavage))), o.repassage && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Prix repassage"), /*#__PURE__*/React.createElement("dd", null, money(o.prixRepassage)))), det.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", {
+  }, done ? "✔ Terminé" : "⏳ En attente"))), /*#__PURE__*/React.createElement("dl", null, /*#__PURE__*/React.createElement("dt", null, "R\xE9f\xE9rence"), /*#__PURE__*/React.createElement("dd", null, o.ref || "—"), /*#__PURE__*/React.createElement("dt", null, "Client"), /*#__PURE__*/React.createElement("dd", null, o.nom || "—"), /*#__PURE__*/React.createElement("dt", null, "Contact"), /*#__PURE__*/React.createElement("dd", null, o.contact || "—"), /*#__PURE__*/React.createElement("dt", null, "Date de d\xE9p\xF4t"), /*#__PURE__*/React.createElement("dd", null, fdate(o.depot)), /*#__PURE__*/React.createElement("dt", null, "Date de retrait"), /*#__PURE__*/React.createElement("dd", null, fdate(o.retrait)), /*#__PURE__*/React.createElement("dt", null, "Service"), /*#__PURE__*/React.createElement("dd", null, [o.lavage && "Lavage", o.repassage && "Repassage", o.service && "Récupération / Livraison"].filter(Boolean).join(" + ") || "—"), /*#__PURE__*/React.createElement("dt", null, "Poids"), /*#__PURE__*/React.createElement("dd", null, o.kg ? o.kg + " Kg" : "—"), o.lavage && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Prix lavage"), /*#__PURE__*/React.createElement("dd", null, money(o.prixLavage))), o.repassage && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Prix repassage"), /*#__PURE__*/React.createElement("dd", null, money(o.prixRepassage))), o.service && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "R\xE9cup\xE9ration / Livraison"), /*#__PURE__*/React.createElement("dd", null, money(o.prixService)))), det.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", {
     style: {
       color: "var(--b2)",
       fontSize: "1rem",
@@ -788,6 +792,8 @@ const empty = () => ({
   kg: "",
   prixLavage: "",
   prixRepassage: "",
+  service: false,
+  prixService: "",
   aPayer: 0,
   dejaPaye: "",
   nom: "",
@@ -926,7 +932,7 @@ function OrderForm({
       ...p,
       [k]: v
     };
-    if (["lavage", "repassage", "prixLavage", "prixRepassage"].includes(k)) n.aPayer = calcAPayer(n);
+    if (["lavage", "repassage", "service", "prixLavage", "prixRepassage", "prixService"].includes(k)) n.aPayer = calcAPayer(n);
     return n;
   });
   const setDet = (i, v) => setO(p => ({
@@ -972,7 +978,9 @@ function OrderForm({
   return /*#__PURE__*/React.createElement("form", {
     className: "card",
     onSubmit: submit
-  }, /*#__PURE__*/React.createElement("h2", null, initial.id ? "✏️ Modifier la commande" : "➕ Nouvelle commande"), !initial.id && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("h2", null, initial.id ? `✏️ Modifier la commande ${initial.ref || ""}` : "➕ Nouvelle commande"), !initial.id && /*#__PURE__*/React.createElement("p", {
+    className: "muted"
+  }, "La r\xE9f\xE9rence de commande (CMD-\u2026) est attribu\xE9e automatiquement \xE0 l'enregistrement. Le code client sert uniquement \xE0 retrouver nom, contact et position."), !initial.id && /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       background: "var(--bl)"
@@ -1020,7 +1028,13 @@ function OrderForm({
     type: "checkbox",
     checked: o.repassage,
     onChange: e => set("repassage", e.target.checked)
-  }), " Repassage"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Nombre de Kg"), /*#__PURE__*/React.createElement("input", {
+  }), " Repassage"), /*#__PURE__*/React.createElement("label", {
+    className: "chk"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: o.service,
+    onChange: e => set("service", e.target.checked)
+  }), " R\xE9cup\xE9ration / Livraison"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Nombre de Kg"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     step: "0.1",
@@ -1038,6 +1052,12 @@ function OrderForm({
     disabled: !o.repassage,
     value: o.prixRepassage,
     onChange: e => set("prixRepassage", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Prix r\xE9cup\xE9ration / livraison (FCFA)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    disabled: !o.service,
+    value: o.prixService,
+    onChange: e => set("prixService", e.target.value)
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "\xC0 payer (FCFA)"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
@@ -1245,7 +1265,16 @@ function Admin() {
         ...clean,
         codeFromLookup
       };
-      if (i >= 0) d.orders[i] = rec;else d.orders.unshift(rec);
+      if (i >= 0) d.orders[i] = {
+        ...rec,
+        ref: d.orders[i].ref || rec.ref
+      };else {
+        d.seq = (d.seq || d.orders.length) + 1;
+        d.orders.unshift({
+          ...rec,
+          ref: makeRef(d.seq)
+        });
+      }
       return d;
     }, `Commande ${o.nom} (${o.status})`);
     if (ok) {
@@ -1312,7 +1341,7 @@ function Admin() {
     }, "\uD83D\uDCCB Copier"), /*#__PURE__*/React.createElement("a", {
       className: "btn okb",
       target: "_blank",
-      href: waLink(view.contact, `Bonjour ${view.nom}, suivez votre commande Pressing Fanico Moderne ici : ${link}`)
+      href: waLink(view.contact, `Bonjour ${view.nom}, suivez votre commande ${view.ref || ""} Pressing Fanico Moderne ici : ${link}`)
     }, "WhatsApp"), /*#__PURE__*/React.createElement("a", {
       className: "btn sec",
       target: "_blank",
@@ -1355,7 +1384,7 @@ function Admin() {
       msg: msg
     }));
   }
-  const list = data.orders.filter(o => (f === "tous" || o.status === f) && (o.nom + o.contact + (o.code || "")).toLowerCase().includes(q.toLowerCase()));
+  const list = data.orders.filter(o => (f === "tous" || o.status === f) && (o.nom + o.contact + (o.code || "") + (o.ref || "")).toLowerCase().includes(q.toLowerCase()));
   const nAtt = data.orders.filter(o => o.status === "attente").length;
   return /*#__PURE__*/React.createElement("main", null, /*#__PURE__*/React.createElement("div", {
     className: "card"
@@ -1399,7 +1428,7 @@ function Admin() {
       flex: 1,
       minWidth: 180
     },
-    placeholder: "\uD83D\uDD0D Rechercher (nom, contact, code)",
+    placeholder: "\uD83D\uDD0D Rechercher (r\xE9f\xE9rence, nom, contact, code)",
     value: q,
     onChange: e => setQ(e.target.value)
   }), /*#__PURE__*/React.createElement("select", {
@@ -1428,7 +1457,9 @@ function Admin() {
     onClick: () => setViewId(o.id)
   }, /*#__PURE__*/React.createElement("div", {
     className: "top"
-  }, /*#__PURE__*/React.createElement("b", null, o.nom), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("b", null, o.ref && /*#__PURE__*/React.createElement("span", {
+    className: "muted"
+  }, o.ref, " \xB7 "), o.nom), /*#__PURE__*/React.createElement("span", {
     className: "badge " + (o.status === "termine" ? "ter" : "att")
   }, o.status === "termine" ? "Terminé" : "En attente")), /*#__PURE__*/React.createElement("div", {
     className: "muted"

@@ -64,12 +64,15 @@ Le site sera disponible à `https://<compte>.github.io/fanico/` après 1–2 min
 ---
 
 ## Utilisation administrateur
-- **Nouvelle commande** : lavage / repassage, kg, prix, à payer (calcul auto, modifiable), déjà payé,
+- **Nouvelle commande** : lavage / repassage / récupération-livraison (un seul service, un seul prix), kg, prix,
+  à payer = lavage + repassage + récupération-livraison (calcul auto, modifiable), déjà payé,
   reste à payer (auto), nom, contact, dates de dépôt et de retrait.
 - **Détails** : bouton **＋ Nouveau détail** pour chaque ligne (ex. « 2 draps blancs »), ✕ pour supprimer.
 - **Carte** : cliquez pour placer le client, déplacez le marqueur pour mettre à jour,
   **🧭 Itinéraire** ouvre Google Maps pour la livraison.
-- **Code client** (`FN-XXXXXX`) : **⚙️ Générer un code** ; il reste valable même après suppression
+- **Référence de commande** (`CMD-2026-00001`) : attribuée automatiquement et unique pour chaque commande
+  (visible sur le reçu, la liste, la recherche et `data.md`).
+- **Code client** (`FN-XXXXXX`) — différent de la référence : sert seulement à retrouver le client : **⚙️ Générer un code** ; il reste valable même après suppression
   de la commande. Pour un client qui revient : saisir le code → **🔎 Récupérer** (nom, contact, position).
   Impossible de régénérer un code sur des infos récupérées via un code.
 - **Statut** : ⏳ En attente → ✔ Terminé (payé + habits reçus). Bouton **Marquer terminé** = solde payé.

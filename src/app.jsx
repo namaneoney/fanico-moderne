@@ -16,17 +16,19 @@ const money = n => (Number(n) || 0).toLocaleString("fr-FR") + " FCFA";
 const today = () => new Date().toISOString().slice(0, 10);
 const fdate = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—";
 const reste = o => Math.max(0, (Number(o.aPayer) || 0) - (Number(o.dejaPaye) || 0));
-const calcAPayer = o => (o.lavage ? Number(o.prixLavage) || 0 : 0) + (o.repassage ? Number(o.prixRepassage) || 0 : 0);
+const calcAPayer = o => (o.lavage ? Number(o.prixLavage) || 0 : 0) + (o.repassage ? Number(o.prixRepassage) || 0 : 0) + (o.service ? Number(o.prixService) || 0 : 0);
 const waLink = (tel, txt) => { let t = (tel || "").replace(/\D/g, ""); if (t.length === 10) t = "225" + t; return `https://wa.me/${t}?text=${encodeURIComponent(txt)}`; };
 const routeLink = p => `https://www.google.com/maps/dir/?api=1&destination=${p[0]},${p[1]}`;
 const toB64 = s => btoa(unescape(encodeURIComponent(s)));
 const fromB64 = s => decodeURIComponent(escape(atob(s.replace(/\n/g, ""))));
 
 // ---------- data.md : fichier texte du projet sur GitHub ----------
-const EMPTY = () => ({ orders: [], clients: {} });
+const EMPTY = () => ({ seq: 0, orders: [], clients: {} });
+// Référence unique de commande (indépendante du code client) : CMD-AAAA-00001
+const makeRef = n => `CMD-${new Date().getFullYear()}-${String(n).padStart(5, "0")}`;
 const cell = v => String(v ?? "").replace(/\|/g, "/").replace(/\n/g, " ");
 function toMd(d) {
-  const o = d.orders.map(x => `| ${cell(x.nom)} | ${cell(x.contact)} | ${x.status === "termine" ? "Terminé" : "En attente"} | ${cell(x.depot)} | ${cell(x.retrait)} | ${cell(x.details?.join(", "))} | ${cell(x.aPayer)} | ${reste(x)} | ${cell(x.code || "")} | ${x.pos ? x.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
+  const o = d.orders.map(x => `| ${cell(x.ref || "")} | ${cell(x.nom)} | ${cell(x.contact)} | ${x.status === "termine" ? "Terminé" : "En attente"} | ${cell(x.depot)} | ${cell(x.retrait)} | ${cell(x.details?.join(", "))} | ${cell(x.aPayer)} | ${reste(x)} | ${cell(x.code || "")} | ${x.pos ? x.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
   const c = Object.entries(d.clients).map(([k, v]) => `| ${k} | ${cell(v.nom)} | ${cell(v.contact)} | ${v.pos ? v.pos.map(n => n.toFixed(5)).join(", ") : ""} |`).join("\n");
   return `# Données – Pressing Fanico Moderne
 
@@ -35,8 +37,8 @@ function toMd(d) {
 
 ## Commandes (${d.orders.length})
 
-| Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
-|---|---|---|---|---|---|---|---|---|---|
+| Référence | Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
+|---|---|---|---|---|---|---|---|---|---|---|
 ${o}
 
 ## Codes clients (${Object.keys(d.clients).length})
@@ -56,7 +58,7 @@ function parseMd(t) {
   const m = t.match(/```json\s*([\s\S]*?)\s*```/);
   if (!m) return EMPTY();
   const d = JSON.parse(m[1]);
-  return { orders: d.orders || [], clients: d.clients || {} };
+  return { seq: d.seq || 0, orders: d.orders || [], clients: d.clients || {} };
 }
 function defaultCfg() {
   const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
@@ -139,14 +141,16 @@ function Receipt({ o }) {
         <p><span className={"badge " + (done ? "ter" : "att")}>{done ? "✔ Terminé" : "⏳ En attente"}</span></p>
       </div>
       <dl>
+        <dt>Référence</dt><dd>{o.ref || "—"}</dd>
         <dt>Client</dt><dd>{o.nom || "—"}</dd>
         <dt>Contact</dt><dd>{o.contact || "—"}</dd>
         <dt>Date de dépôt</dt><dd>{fdate(o.depot)}</dd>
         <dt>Date de retrait</dt><dd>{fdate(o.retrait)}</dd>
-        <dt>Service</dt><dd>{[o.lavage && "Lavage", o.repassage && "Repassage"].filter(Boolean).join(" + ") || "—"}</dd>
+        <dt>Service</dt><dd>{[o.lavage && "Lavage", o.repassage && "Repassage", o.service && "Récupération / Livraison"].filter(Boolean).join(" + ") || "—"}</dd>
         <dt>Poids</dt><dd>{o.kg ? o.kg + " Kg" : "—"}</dd>
         {o.lavage && <><dt>Prix lavage</dt><dd>{money(o.prixLavage)}</dd></>}
         {o.repassage && <><dt>Prix repassage</dt><dd>{money(o.prixRepassage)}</dd></>}
+        {o.service && <><dt>Récupération / Livraison</dt><dd>{money(o.prixService)}</dd></>}
       </dl>
       {det.length > 0 && <>
         <h3 style={{ color: "var(--b2)", fontSize: "1rem", marginBottom: 4 }}>Détails</h3>
@@ -219,7 +223,7 @@ function ClientView({ id }) {
 }
 
 // ---------- Admin ----------
-const empty = () => ({ id: null, lavage: true, repassage: false, kg: "", prixLavage: "", prixRepassage: "", aPayer: 0, dejaPaye: "", nom: "", contact: "", depot: today(), retrait: "", details: [""], pos: null, status: "attente", code: null, codeFromLookup: false });
+const empty = () => ({ id: null, lavage: true, repassage: false, kg: "", prixLavage: "", prixRepassage: "", service: false, prixService: "", aPayer: 0, dejaPaye: "", nom: "", contact: "", depot: today(), retrait: "", details: [""], pos: null, status: "attente", code: null, codeFromLookup: false });
 
 function Login({ onOk }) {
   const [p, setP] = useState(""), [e, setE] = useState(false);
@@ -273,7 +277,7 @@ function Settings({ onDone, onCancel }) {
 function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
   const [o, setO] = useState(initial);
   const [lookup, setLookup] = useState("");
-  const set = (k, v) => setO(p => { const n = { ...p, [k]: v }; if (["lavage", "repassage", "prixLavage", "prixRepassage"].includes(k)) n.aPayer = calcAPayer(n); return n; });
+  const set = (k, v) => setO(p => { const n = { ...p, [k]: v }; if (["lavage", "repassage", "service", "prixLavage", "prixRepassage", "prixService"].includes(k)) n.aPayer = calcAPayer(n); return n; });
   const setDet = (i, v) => setO(p => ({ ...p, details: p.details.map((d, j) => j === i ? v : d) }));
 
   const genererCode = () => {
@@ -297,7 +301,8 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
 
   return (
     <form className="card" onSubmit={submit}>
-      <h2>{initial.id ? "✏️ Modifier la commande" : "➕ Nouvelle commande"}</h2>
+      <h2>{initial.id ? `✏️ Modifier la commande ${initial.ref || ""}` : "➕ Nouvelle commande"}</h2>
+      {!initial.id && <p className="muted">La référence de commande (CMD-…) est attribuée automatiquement à l'enregistrement. Le code client sert uniquement à retrouver nom, contact et position.</p>}
 
       {!initial.id && <div className="card" style={{ background: "var(--bl)" }}>
         <label>Client existant ? Saisir son code</label>
@@ -312,9 +317,11 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
         <div><label>Date de retrait</label><input type="date" value={o.retrait} onChange={e => set("retrait", e.target.value)} /></div>
         <label className="chk"><input type="checkbox" checked={o.lavage} onChange={e => set("lavage", e.target.checked)} /> Lavage</label>
         <label className="chk"><input type="checkbox" checked={o.repassage} onChange={e => set("repassage", e.target.checked)} /> Repassage</label>
+        <label className="chk"><input type="checkbox" checked={o.service} onChange={e => set("service", e.target.checked)} /> Récupération / Livraison</label>
         <div><label>Nombre de Kg</label><input type="number" min="0" step="0.1" value={o.kg} onChange={e => set("kg", e.target.value)} /></div>
         <div><label>Prix du lavage (FCFA)</label><input type="number" min="0" disabled={!o.lavage} value={o.prixLavage} onChange={e => set("prixLavage", e.target.value)} /></div>
         <div><label>Prix du repassage (FCFA)</label><input type="number" min="0" disabled={!o.repassage} value={o.prixRepassage} onChange={e => set("prixRepassage", e.target.value)} /></div>
+        <div><label>Prix récupération / livraison (FCFA)</label><input type="number" min="0" disabled={!o.service} value={o.prixService} onChange={e => set("prixService", e.target.value)} /></div>
         <div><label>À payer (FCFA)</label><input type="number" min="0" value={o.aPayer} onChange={e => setO(p => ({ ...p, aPayer: e.target.value }))} /></div>
         <div><label>Déjà payé (FCFA)</label><input type="number" min="0" value={o.dejaPaye} onChange={e => set("dejaPaye", e.target.value)} /></div>
         <div><label>Reste à payer</label><input readOnly value={money(reste(o))} /></div>
@@ -402,7 +409,8 @@ function Admin() {
       if (o.code) d.clients[o.code] = { ...(d.clients[o.code] || { cree: Date.now() }), nom: o.nom, contact: o.contact, pos: o.pos };
       const i = d.orders.findIndex(x => x.id === o.id);
       const rec = { ...clean, codeFromLookup };
-      if (i >= 0) d.orders[i] = rec; else d.orders.unshift(rec);
+      if (i >= 0) d.orders[i] = { ...rec, ref: d.orders[i].ref || rec.ref };
+      else { d.seq = (d.seq || d.orders.length) + 1; d.orders.unshift({ ...rec, ref: makeRef(d.seq) }); }
       return d;
     }, `Commande ${o.nom} (${o.status})`);
     if (ok) { setEdit(null); setViewId(o.id); toast("✔ Enregistré dans data.md"); }
@@ -430,7 +438,7 @@ function Admin() {
           <p className="muted">Ce lien reste le même : le client voit automatiquement chaque mise à jour.</p>
           <div className="row">
             <button onClick={() => copy(link)}>📋 Copier</button>
-            <a className="btn okb" target="_blank" href={waLink(view.contact, `Bonjour ${view.nom}, suivez votre commande Pressing Fanico Moderne ici : ${link}`)}>WhatsApp</a>
+            <a className="btn okb" target="_blank" href={waLink(view.contact, `Bonjour ${view.nom}, suivez votre commande ${view.ref || ""} Pressing Fanico Moderne ici : ${link}`)}>WhatsApp</a>
             <a className="btn sec" target="_blank" href={link}>Ouvrir</a>
             <button className="sec" onClick={() => print()}>🖨️ Imprimer</button>
           </div>
@@ -447,7 +455,7 @@ function Admin() {
     );
   }
 
-  const list = data.orders.filter(o => (f === "tous" || o.status === f) && (o.nom + o.contact + (o.code || "")).toLowerCase().includes(q.toLowerCase()));
+  const list = data.orders.filter(o => (f === "tous" || o.status === f) && (o.nom + o.contact + (o.code || "") + (o.ref || "")).toLowerCase().includes(q.toLowerCase()));
   const nAtt = data.orders.filter(o => o.status === "attente").length;
   return (
     <main>
@@ -462,7 +470,7 @@ function Admin() {
           </div>
         </div>
         <div className="row" style={{ marginTop: 12 }}>
-          <input style={{ flex: 1, minWidth: 180 }} placeholder="🔍 Rechercher (nom, contact, code)" value={q} onChange={e => setQ(e.target.value)} />
+          <input style={{ flex: 1, minWidth: 180 }} placeholder="🔍 Rechercher (référence, nom, contact, code)" value={q} onChange={e => setQ(e.target.value)} />
           <select style={{ width: "auto" }} value={f} onChange={e => setF(e.target.value)}>
             <option value="tous">Tous</option><option value="attente">En attente</option><option value="termine">Terminés</option>
           </select>
@@ -472,7 +480,7 @@ function Admin() {
         {list.length === 0 && <div className="card muted center">{loading ? "Chargement…" : "Aucune commande."}</div>}
         {list.map(o => (
           <div className="item card" key={o.id} style={{ marginBottom: 0, cursor: "pointer" }} onClick={() => setViewId(o.id)}>
-            <div className="top"><b>{o.nom}</b><span className={"badge " + (o.status === "termine" ? "ter" : "att")}>{o.status === "termine" ? "Terminé" : "En attente"}</span></div>
+            <div className="top"><b>{o.ref && <span className="muted">{o.ref} · </span>}{o.nom}</b><span className={"badge " + (o.status === "termine" ? "ter" : "att")}>{o.status === "termine" ? "Terminé" : "En attente"}</span></div>
             <div className="muted">{o.contact} · Dépôt {fdate(o.depot)} · Retrait {fdate(o.retrait)} {o.code && <>· <b>{o.code}</b></>}</div>
             <div>À payer {money(o.aPayer)} · <span style={{ color: reste(o) ? "var(--r)" : "var(--ok)" }}>Reste {money(reste(o))}</span></div>
           </div>
