@@ -75,6 +75,9 @@ Le site sera disponible à `https://<compte>.github.io/fanico/` après 1–2 min
 - **Code client** (`FN-XXXXXX`) — différent de la référence : sert seulement à retrouver le client : **⚙️ Générer un code** ; il reste valable même après suppression
   de la commande. Pour un client qui revient : saisir le code → **🔎 Récupérer** (nom, contact, position).
   Impossible de régénérer un code sur des infos récupérées via un code.
+  La position remonte aussi. Si vous modifiez nom / contact / position dans la commande, c'est enregistré sur le même code.
+- **👥 Clients** : liste des codes clients ; cliquez sur un client pour modifier nom, contact et position
+  → **Enregistrer sur ce code** (met aussi à jour ses commandes en attente).
 - **Statut** : ⏳ En attente → ✔ Terminé (payé + habits reçus). Bouton **Marquer terminé** = solde payé.
 - **Lien client** : 📋 Copier, **WhatsApp**, 🖨️ Imprimer. Le lien ne change jamais.
 

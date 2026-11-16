@@ -134,7 +134,7 @@ function MapPicker({ pos, onChange, readOnly }) {
       mk.current = L.marker(pos, { draggable: !readOnly }).addTo(map.current);
       mk.current.on("dragend", e => { const p = e.target.getLatLng(); onChange([p.lat, p.lng]); });
       map.current.setView(pos, 16);
-    } else mk.current.setLatLng(pos);
+    } else { mk.current.setLatLng(pos); if (!map.current.getBounds().contains(pos)) map.current.setView(pos, Math.max(map.current.getZoom(), 16)); }
   }, [pos && pos[0], pos && pos[1]]);
   return <div ref={ref} className="map" />;
 }
@@ -297,11 +297,13 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
     setO(p => ({ ...p, code: c, codeFromLookup: false }));
     toast("Code généré : " + c + " (enregistré à la sauvegarde)");
   };
-  const recuperer = () => {
-    const c = lookup.trim().toUpperCase(), cl = clients[c];
+  const recuperer = async () => {
+    const c = lookup.trim().toUpperCase();
+    let cl = clients[c];
+    try { cl = (await ghGet(getCfg(), true)).data.clients[c] || cl; } catch {}
     if (!cl) return toast("Code introuvable.");
     setO(p => ({ ...p, nom: cl.nom, contact: cl.contact, pos: cl.pos, code: c, codeFromLookup: true }));
-    toast("Informations client récupérées.");
+    toast(cl.pos ? "Client récupéré (position incluse)." : "Client récupéré — aucune position enregistrée, placez-la sur la carte.");
   };
   const submit = e => {
     e.preventDefault();
@@ -360,6 +362,7 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
         {o.code ? <span className="code">{o.code}</span> : <span className="muted">Aucun code</span>}
         <button type="button" onClick={genererCode} disabled={!!o.code}>⚙️ Générer un code</button>
         {o.codeFromLookup && <span className="muted">Infos récupérées via code — régénération impossible.</span>}
+        {o.code && <span className="muted">Nom, contact et position modifiés ici seront enregistrés sur ce code.</span>}
       </div>
 
       <h2 style={{ marginTop: 18 }}>Statut</h2>
@@ -376,6 +379,56 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
   );
 }
 
+function ClientEdit({ code, client, onSave, onCancel, busy }) {
+  const [c, setC] = useState({ nom: "", contact: "", pos: null, ...client });
+  return (
+    <div className="card">
+      <h2>👤 Client <span className="code">{code}</span></h2>
+      <div className="grid">
+        <div><label>Nom</label><input value={c.nom} onChange={e => setC({ ...c, nom: e.target.value })} /></div>
+        <div><label>Contact</label><input type="tel" value={c.contact} onChange={e => setC({ ...c, contact: e.target.value })} /></div>
+      </div>
+      <h2 style={{ marginTop: 18 }}>📍 Position</h2>
+      <p className="muted">Cliquez sur la carte ou déplacez le marqueur pour mettre à jour.</p>
+      <MapPicker pos={c.pos} onChange={p => setC(x => ({ ...x, pos: p }))} />
+      <div className="row" style={{ marginTop: 8 }}>
+        <button type="button" className="sec" onClick={() => navigator.geolocation?.getCurrentPosition(p => setC(x => ({ ...x, pos: [p.coords.latitude, p.coords.longitude] })))}>🎯 Ma position actuelle</button>
+        {c.pos && <a className="btn sec" href={routeLink(c.pos)} target="_blank">🧭 Itinéraire</a>}
+      </div>
+      <p className="muted">Les commandes en attente de ce client seront aussi mises à jour.</p>
+      <div className="row">
+        <button onClick={() => onSave(c)} disabled={busy || !c.nom.trim()}>{busy ? "Enregistrement…" : "💾 Enregistrer sur ce code"}</button>
+        <button className="sec" onClick={onCancel}>Annuler</button>
+      </div>
+    </div>
+  );
+}
+
+function ClientsList({ clients, onOpen, onBack }) {
+  const [q, setQ] = useState("");
+  const rows = Object.entries(clients).filter(([k, v]) => (k + v.nom + v.contact).toLowerCase().includes(q.toLowerCase()));
+  return (
+    <>
+      <div className="card">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>👥 Codes clients ({Object.keys(clients).length})</h2>
+          <button className="sec" onClick={onBack}>← Commandes</button>
+        </div>
+        <input style={{ marginTop: 12 }} placeholder="🔍 Rechercher (code, nom, contact)" value={q} onChange={e => setQ(e.target.value)} />
+      </div>
+      <div className="list">
+        {rows.length === 0 && <div className="card muted center">Aucun client.</div>}
+        {rows.map(([k, v]) => (
+          <div className="item card" key={k} style={{ marginBottom: 0, cursor: "pointer" }} onClick={() => onOpen(k)}>
+            <div className="top"><b>{v.nom}</b><span className="code">{k}</span></div>
+            <div className="muted">{v.contact || "—"} · {v.pos ? "📍 position enregistrée" : "aucune position"}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function Admin() {
   const [logged, setLogged] = useState(sessionStorage.getItem("fn_admin") === "1");
   const [cfgOk, setCfgOk] = useState(() => { const c = getCfg(); return !!(c.owner && c.repo && c.token); });
@@ -383,6 +436,7 @@ function Admin() {
   const [data, setData] = useState(() => load("fn_cache", EMPTY()));
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null), [viewId, setViewId] = useState(null);
+  const [clientsView, setClientsView] = useState(false), [clientCode, setClientCode] = useState(null);
   const [q, setQ] = useState(""), [f, setF] = useState("tous");
   const [msg, setMsg] = useState("");
   const toast = m => { setMsg(m); setTimeout(() => setMsg(""), m.startsWith("❌") ? 9000 : 3000); };
@@ -432,6 +486,17 @@ function Admin() {
   const terminer = o => upsert({ ...o, status: "termine", dejaPaye: o.aPayer, maj: Date.now() });
   const copy = t => navigator.clipboard?.writeText(t).then(() => toast("Lien copié !"), () => prompt("Copiez le lien :", t));
 
+  const saveClient = async (code, c) => {
+    const ok = await mutate(d => {
+      d.clients[code] = { ...(d.clients[code] || { cree: Date.now() }), nom: c.nom, contact: c.contact, pos: c.pos };
+      d.orders = d.orders.map(x => x.code === code && x.status !== "termine" ? { ...x, nom: c.nom, contact: c.contact, pos: c.pos, maj: Date.now() } : x);
+      return d;
+    }, `Client ${code} mis à jour`);
+    if (ok) { setClientCode(null); toast("✔ Client mis à jour"); }
+  };
+  if (clientCode) return <main><ClientEdit code={clientCode} client={data.clients[clientCode]} busy={busy} onSave={c => saveClient(clientCode, c)} onCancel={() => setClientCode(null)} /><Toast msg={msg} /></main>;
+  if (clientsView && !edit && !viewId) return <main><ClientsList clients={data.clients} onOpen={setClientCode} onBack={() => setClientsView(false)} /><Toast msg={msg} /></main>;
+
   if (edit) return <main><OrderForm initial={edit} clients={data.clients} onSave={upsert} onCancel={() => setEdit(null)} toast={toast} busy={busy} /><Toast msg={msg} /></main>;
 
   const view = viewId && data.orders.find(x => x.id === viewId);
@@ -475,6 +540,7 @@ function Admin() {
           <div className="row">
             <button onClick={() => setEdit(empty())}>➕ Nouvelle commande</button>
             <button className="sec" onClick={refresh} disabled={loading}>{loading ? "…" : "🔄"}</button>
+            <button className="sec" onClick={() => setClientsView(true)}>👥 Clients</button>
             <button className="sec" onClick={() => setShowCfg(true)}>⚙️</button>
             <button className="sec" onClick={() => { sessionStorage.removeItem("fn_admin"); setLogged(false); }}>Déconnexion</button>
           </div>

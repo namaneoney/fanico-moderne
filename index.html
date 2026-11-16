@@ -618,7 +618,10 @@ function MapPicker({
         onChange([p.lat, p.lng]);
       });
       map.current.setView(pos, 16);
-    } else mk.current.setLatLng(pos);
+    } else {
+      mk.current.setLatLng(pos);
+      if (!map.current.getBounds().contains(pos)) map.current.setView(pos, Math.max(map.current.getZoom(), 16));
+    }
   }, [pos && pos[0], pos && pos[1]]);
   return /*#__PURE__*/React.createElement("div", {
     ref: ref,
@@ -962,9 +965,12 @@ function OrderForm({
     }));
     toast("Code généré : " + c + " (enregistré à la sauvegarde)");
   };
-  const recuperer = () => {
-    const c = lookup.trim().toUpperCase(),
-      cl = clients[c];
+  const recuperer = async () => {
+    const c = lookup.trim().toUpperCase();
+    let cl = clients[c];
+    try {
+      cl = (await ghGet(getCfg(), true)).data.clients[c] || cl;
+    } catch {}
     if (!cl) return toast("Code introuvable.");
     setO(p => ({
       ...p,
@@ -974,7 +980,7 @@ function OrderForm({
       code: c,
       codeFromLookup: true
     }));
-    toast("Informations client récupérées.");
+    toast(cl.pos ? "Client récupéré (position incluse)." : "Client récupéré — aucune position enregistrée, placez-la sur la carte.");
   };
   const submit = e => {
     e.preventDefault();
@@ -1152,7 +1158,9 @@ function OrderForm({
     disabled: !!o.code
   }, "\u2699\uFE0F G\xE9n\xE9rer un code"), o.codeFromLookup && /*#__PURE__*/React.createElement("span", {
     className: "muted"
-  }, "Infos r\xE9cup\xE9r\xE9es via code \u2014 r\xE9g\xE9n\xE9ration impossible.")), /*#__PURE__*/React.createElement("h2", {
+  }, "Infos r\xE9cup\xE9r\xE9es via code \u2014 r\xE9g\xE9n\xE9ration impossible."), o.code && /*#__PURE__*/React.createElement("span", {
+    className: "muted"
+  }, "Nom, contact et position modifi\xE9s ici seront enregistr\xE9s sur ce code.")), /*#__PURE__*/React.createElement("h2", {
     style: {
       marginTop: 18
     }
@@ -1184,6 +1192,126 @@ function OrderForm({
     onClick: onCancel
   }, "Annuler")));
 }
+function ClientEdit({
+  code,
+  client,
+  onSave,
+  onCancel,
+  busy
+}) {
+  const [c, setC] = useState({
+    nom: "",
+    contact: "",
+    pos: null,
+    ...client
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("h2", null, "\uD83D\uDC64 Client ", /*#__PURE__*/React.createElement("span", {
+    className: "code"
+  }, code)), /*#__PURE__*/React.createElement("div", {
+    className: "grid"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Nom"), /*#__PURE__*/React.createElement("input", {
+    value: c.nom,
+    onChange: e => setC({
+      ...c,
+      nom: e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Contact"), /*#__PURE__*/React.createElement("input", {
+    type: "tel",
+    value: c.contact,
+    onChange: e => setC({
+      ...c,
+      contact: e.target.value
+    })
+  }))), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      marginTop: 18
+    }
+  }, "\uD83D\uDCCD Position"), /*#__PURE__*/React.createElement("p", {
+    className: "muted"
+  }, "Cliquez sur la carte ou d\xE9placez le marqueur pour mettre \xE0 jour."), /*#__PURE__*/React.createElement(MapPicker, {
+    pos: c.pos,
+    onChange: p => setC(x => ({
+      ...x,
+      pos: p
+    }))
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "row",
+    style: {
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "sec",
+    onClick: () => navigator.geolocation?.getCurrentPosition(p => setC(x => ({
+      ...x,
+      pos: [p.coords.latitude, p.coords.longitude]
+    })))
+  }, "\uD83C\uDFAF Ma position actuelle"), c.pos && /*#__PURE__*/React.createElement("a", {
+    className: "btn sec",
+    href: routeLink(c.pos),
+    target: "_blank"
+  }, "\uD83E\uDDED Itin\xE9raire")), /*#__PURE__*/React.createElement("p", {
+    className: "muted"
+  }, "Les commandes en attente de ce client seront aussi mises \xE0 jour."), /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onSave(c),
+    disabled: busy || !c.nom.trim()
+  }, busy ? "Enregistrement…" : "💾 Enregistrer sur ce code"), /*#__PURE__*/React.createElement("button", {
+    className: "sec",
+    onClick: onCancel
+  }, "Annuler")));
+}
+function ClientsList({
+  clients,
+  onOpen,
+  onBack
+}) {
+  const [q, setQ] = useState("");
+  const rows = Object.entries(clients).filter(([k, v]) => (k + v.nom + v.contact).toLowerCase().includes(q.toLowerCase()));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "row",
+    style: {
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0
+    }
+  }, "\uD83D\uDC65 Codes clients (", Object.keys(clients).length, ")"), /*#__PURE__*/React.createElement("button", {
+    className: "sec",
+    onClick: onBack
+  }, "\u2190 Commandes")), /*#__PURE__*/React.createElement("input", {
+    style: {
+      marginTop: 12
+    },
+    placeholder: "\uD83D\uDD0D Rechercher (code, nom, contact)",
+    value: q,
+    onChange: e => setQ(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "list"
+  }, rows.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card muted center"
+  }, "Aucun client."), rows.map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+    className: "item card",
+    key: k,
+    style: {
+      marginBottom: 0,
+      cursor: "pointer"
+    },
+    onClick: () => onOpen(k)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "top"
+  }, /*#__PURE__*/React.createElement("b", null, v.nom), /*#__PURE__*/React.createElement("span", {
+    className: "code"
+  }, k)), /*#__PURE__*/React.createElement("div", {
+    className: "muted"
+  }, v.contact || "—", " \xB7 ", v.pos ? "📍 position enregistrée" : "aucune position")))));
+}
 function Admin() {
   const [logged, setLogged] = useState(sessionStorage.getItem("fn_admin") === "1");
   const [cfgOk, setCfgOk] = useState(() => {
@@ -1196,6 +1324,8 @@ function Admin() {
     [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null),
     [viewId, setViewId] = useState(null);
+  const [clientsView, setClientsView] = useState(false),
+    [clientCode, setClientCode] = useState(null);
   const [q, setQ] = useState(""),
     [f, setF] = useState("tous");
   const [msg, setMsg] = useState("");
@@ -1308,6 +1438,46 @@ function Admin() {
     maj: Date.now()
   });
   const copy = t => navigator.clipboard?.writeText(t).then(() => toast("Lien copié !"), () => prompt("Copiez le lien :", t));
+  const saveClient = async (code, c) => {
+    const ok = await mutate(d => {
+      d.clients[code] = {
+        ...(d.clients[code] || {
+          cree: Date.now()
+        }),
+        nom: c.nom,
+        contact: c.contact,
+        pos: c.pos
+      };
+      d.orders = d.orders.map(x => x.code === code && x.status !== "termine" ? {
+        ...x,
+        nom: c.nom,
+        contact: c.contact,
+        pos: c.pos,
+        maj: Date.now()
+      } : x);
+      return d;
+    }, `Client ${code} mis à jour`);
+    if (ok) {
+      setClientCode(null);
+      toast("✔ Client mis à jour");
+    }
+  };
+  if (clientCode) return /*#__PURE__*/React.createElement("main", null, /*#__PURE__*/React.createElement(ClientEdit, {
+    code: clientCode,
+    client: data.clients[clientCode],
+    busy: busy,
+    onSave: c => saveClient(clientCode, c),
+    onCancel: () => setClientCode(null)
+  }), /*#__PURE__*/React.createElement(Toast, {
+    msg: msg
+  }));
+  if (clientsView && !edit && !viewId) return /*#__PURE__*/React.createElement("main", null, /*#__PURE__*/React.createElement(ClientsList, {
+    clients: data.clients,
+    onOpen: setClientCode,
+    onBack: () => setClientsView(false)
+  }), /*#__PURE__*/React.createElement(Toast, {
+    msg: msg
+  }));
   if (edit) return /*#__PURE__*/React.createElement("main", null, /*#__PURE__*/React.createElement(OrderForm, {
     initial: edit,
     clients: data.clients,
@@ -1421,6 +1591,9 @@ function Admin() {
     onClick: refresh,
     disabled: loading
   }, loading ? "…" : "🔄"), /*#__PURE__*/React.createElement("button", {
+    className: "sec",
+    onClick: () => setClientsView(true)
+  }, "\uD83D\uDC65 Clients"), /*#__PURE__*/React.createElement("button", {
     className: "sec",
     onClick: () => setShowCfg(true)
   }, "\u2699\uFE0F"), /*#__PURE__*/React.createElement("button", {
