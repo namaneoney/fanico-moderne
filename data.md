@@ -1,19 +1,19 @@
 # Données – Pressing Fanico Moderne
 
 > Fichier généré automatiquement par l'application. Ne modifiez pas le bloc JSON à la main.
-> Dernière mise à jour : 16/11/2026 02:55:00
+> Dernière mise à jour : 16/11/2026 02:56:59
 
 ## Commandes (1)
 
 | Référence | Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
 |---|---|---|---|---|---|---|---|---|---|---|
-| CMD-2026-00001 | Fanico | 0709405059 | En attente | 2026-11-16 | 2026-11-18 |  | 6300 | 3300 |  |  |
+| CMD-2026-00001 | Fanico | 0709405059 | En attente | 2026-11-16 | 2026-11-18 | 3 Draps, 5 hauts | 6300 | 3300 | FN-VEF6QA |  |
 
-## Codes clients (0)
+## Codes clients (1)
 
 | Code | Nom | Contact | Position |
 |---|---|---|---|
-
+| FN-VEF6QA | Fanico | 0709405059 |  |
 
 ## Données brutes
 
@@ -36,15 +36,25 @@
    "contact": "0709405059",
    "depot": "2026-11-16",
    "retrait": "2026-11-18",
-   "details": [],
+   "details": [
+    "3 Draps",
+    "5 hauts"
+   ],
    "pos": null,
    "status": "attente",
-   "code": null,
-   "maj": 1794797699696,
-   "codeFromLookup": false,
-   "ref": "CMD-2026-00001"
+   "code": "FN-VEF6QA",
+   "maj": 1794797818306,
+   "ref": "CMD-2026-00001",
+   "codeFromLookup": false
   }
  ],
- "clients": {}
+ "clients": {
+  "FN-VEF6QA": {
+   "cree": 1794797819395,
+   "nom": "Fanico",
+   "contact": "0709405059",
+   "pos": null
+  }
+ }
 }
 ```
