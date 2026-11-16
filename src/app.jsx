@@ -233,7 +233,7 @@ function ClientView({ id }) {
 }
 
 // ---------- Admin ----------
-const empty = () => ({ id: null, lavage: true, repassage: false, kg: "", prixLavage: "", prixRepassage: "", service: false, prixService: "", aPayer: 0, dejaPaye: "", nom: "", contact: "", depot: today(), retrait: "", details: [""], pos: null, status: "attente", code: null, codeFromLookup: false });
+const empty = () => ({ id: null, lavage: true, repassage: false, kg: "", prixLavage: "", prixRepassage: "", service: false, prixService: "", aPayer: 0, dejaPaye: "", nom: "", contact: "", depot: today(), retrait: "", details: [""], pos: null, status: "attente", code: null, codeFromLookup: false, detailsPosition: "" });
 
 function Login({ onOk }) {
   const [p, setP] = useState(""), [e, setE] = useState(false);
@@ -302,7 +302,7 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
     let cl = clients[c];
     try { cl = (await ghGet(getCfg(), true)).data.clients[c] || cl; } catch {}
     if (!cl) return toast("Code introuvable.");
-    setO(p => ({ ...p, nom: cl.nom, contact: cl.contact, pos: cl.pos, code: c, codeFromLookup: true }));
+    setO(p => ({ ...p, nom: cl.nom, contact: cl.contact, pos: cl.pos, detailsPosition: cl.detailsPosition || "", code: c, codeFromLookup: true }));
     toast(cl.pos ? "Client récupéré (position incluse)." : "Client récupéré — aucune position enregistrée, placez-la sur la carte.");
   };
   const submit = e => {
@@ -351,6 +351,8 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
       <h2 style={{ marginTop: 18 }}>📍 Position du client</h2>
       <p className="muted">Cliquez sur la carte pour placer le client, ou déplacez le marqueur pour mettre à jour.</p>
       <MapPicker pos={o.pos} onChange={p => set("pos", p)} />
+      <label style={{ marginTop: 10 }}>📝 Détails position (admin uniquement)</label>
+      <textarea rows="3" placeholder="ex : maison à étage, 2e étage, porte n°12, portail bleu, après la pharmacie…" value={o.detailsPosition || ""} onChange={e => set("detailsPosition", e.target.value)} />
       <div className="row" style={{ marginTop: 8 }}>
         <button type="button" className="sec" onClick={() => navigator.geolocation?.getCurrentPosition(p => set("pos", [p.coords.latitude, p.coords.longitude]), () => toast("Géolocalisation refusée."))}>🎯 Ma position actuelle</button>
         {o.pos && <a className="btn sec" href={routeLink(o.pos)} target="_blank">🧭 Itinéraire</a>}
@@ -380,7 +382,7 @@ function OrderForm({ initial, clients, onSave, onCancel, toast, busy }) {
 }
 
 function ClientEdit({ code, client, onSave, onCancel, busy }) {
-  const [c, setC] = useState({ nom: "", contact: "", pos: null, ...client });
+  const [c, setC] = useState({ nom: "", contact: "", pos: null, detailsPosition: "", ...client });
   return (
     <div className="card">
       <h2>👤 Client <span className="code">{code}</span></h2>
@@ -391,6 +393,8 @@ function ClientEdit({ code, client, onSave, onCancel, busy }) {
       <h2 style={{ marginTop: 18 }}>📍 Position</h2>
       <p className="muted">Cliquez sur la carte ou déplacez le marqueur pour mettre à jour.</p>
       <MapPicker pos={c.pos} onChange={p => setC(x => ({ ...x, pos: p }))} />
+      <label style={{ marginTop: 10 }}>📝 Détails position (admin uniquement)</label>
+      <textarea rows="3" placeholder="ex : maison à étage, 2e étage, porte n°12, portail bleu, après la pharmacie…" value={c.detailsPosition || ""} onChange={e => setC({ ...c, detailsPosition: e.target.value })} />
       <div className="row" style={{ marginTop: 8 }}>
         <button type="button" className="sec" onClick={() => navigator.geolocation?.getCurrentPosition(p => setC(x => ({ ...x, pos: [p.coords.latitude, p.coords.longitude] })))}>🎯 Ma position actuelle</button>
         {c.pos && <a className="btn sec" href={routeLink(c.pos)} target="_blank">🧭 Itinéraire</a>}
@@ -470,7 +474,7 @@ function Admin() {
   const upsert = async o => {
     const { codeFromLookup, ...clean } = o;
     const ok = await mutate(d => {
-      if (o.code) d.clients[o.code] = { ...(d.clients[o.code] || { cree: Date.now() }), nom: o.nom, contact: o.contact, pos: o.pos };
+      if (o.code) d.clients[o.code] = { ...(d.clients[o.code] || { cree: Date.now() }), nom: o.nom, contact: o.contact, pos: o.pos, detailsPosition: o.detailsPosition || "" };
       const i = d.orders.findIndex(x => x.id === o.id);
       const rec = { ...clean, codeFromLookup };
       if (i >= 0) d.orders[i] = { ...rec, ref: d.orders[i].ref || rec.ref };
@@ -488,8 +492,8 @@ function Admin() {
 
   const saveClient = async (code, c) => {
     const ok = await mutate(d => {
-      d.clients[code] = { ...(d.clients[code] || { cree: Date.now() }), nom: c.nom, contact: c.contact, pos: c.pos };
-      d.orders = d.orders.map(x => x.code === code && x.status !== "termine" ? { ...x, nom: c.nom, contact: c.contact, pos: c.pos, maj: Date.now() } : x);
+      d.clients[code] = { ...(d.clients[code] || { cree: Date.now() }), nom: c.nom, contact: c.contact, pos: c.pos, detailsPosition: c.detailsPosition || "" };
+      d.orders = d.orders.map(x => x.code === code && x.status !== "termine" ? { ...x, nom: c.nom, contact: c.contact, pos: c.pos, detailsPosition: c.detailsPosition || "", maj: Date.now() } : x);
       return d;
     }, `Client ${code} mis à jour`);
     if (ok) { setClientCode(null); toast("✔ Client mis à jour"); }
@@ -518,8 +522,10 @@ function Admin() {
             <button className="sec" onClick={() => print()}>🖨️ Imprimer</button>
           </div>
         </div>
-        {view.pos && <div className="card noprint"><h2>📍 Livraison</h2><MapPicker pos={view.pos} readOnly onChange={() => {}} />
-          <a className="btn" style={{ marginTop: 8 }} target="_blank" href={routeLink(view.pos)}>🧭 Lancer l'itinéraire</a></div>}
+        {(view.pos || view.detailsPosition) && <div className="card noprint"><h2>📍 Livraison</h2>
+          {view.detailsPosition && <p style={{ whiteSpace: "pre-wrap", background: "var(--bl)", padding: 10, borderRadius: 10 }}>📝 {view.detailsPosition}</p>}
+          {view.pos && <MapPicker pos={view.pos} readOnly onChange={() => {}} />}
+          {view.pos && <a className="btn" style={{ marginTop: 8 }} target="_blank" href={routeLink(view.pos)}>🧭 Lancer l'itinéraire</a>}</div>}
         <div className="row noprint">
           <button className="sec" onClick={() => setEdit({ ...empty(), ...view, details: view.details?.length ? view.details : [""] })} disabled={busy}>✏️ Modifier</button>
           {view.status !== "termine" && <button className="okb" onClick={() => terminer(view)} disabled={busy}>✔ Marquer terminé</button>}

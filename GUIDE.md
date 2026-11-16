@@ -68,6 +68,8 @@ Le site sera disponible à `https://<compte>.github.io/fanico/` après 1–2 min
   à payer = lavage + repassage + récupération-livraison (calcul auto, modifiable), déjà payé,
   reste à payer (auto), nom, contact, dates de dépôt et de retrait.
 - **Détails** : bouton **＋ Nouveau détail** pour chaque ligne (ex. « 2 draps blancs »), ✕ pour supprimer.
+- **📝 Détails position** (admin uniquement, enregistré avec le code client) : étage ou maison basse,
+  numéro de porte, couleur du portail, repères… Non affiché sur le reçu client (mais présent dans `data.md`, public).
 - **Carte** : cliquez pour placer le client, déplacez le marqueur pour mettre à jour,
   **🧭 Itinéraire** ouvre Google Maps pour la livraison.
 - **Référence de commande** (`CMD-2026-00001`) : attribuée automatiquement et unique pour chaque commande

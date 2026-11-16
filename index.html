@@ -818,7 +818,8 @@ const empty = () => ({
   pos: null,
   status: "attente",
   code: null,
-  codeFromLookup: false
+  codeFromLookup: false,
+  detailsPosition: ""
 });
 function Login({
   onOk
@@ -977,6 +978,7 @@ function OrderForm({
       nom: cl.nom,
       contact: cl.contact,
       pos: cl.pos,
+      detailsPosition: cl.detailsPosition || "",
       code: c,
       codeFromLookup: true
     }));
@@ -1125,6 +1127,15 @@ function OrderForm({
   }, "Cliquez sur la carte pour placer le client, ou d\xE9placez le marqueur pour mettre \xE0 jour."), /*#__PURE__*/React.createElement(MapPicker, {
     pos: o.pos,
     onChange: p => set("pos", p)
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      marginTop: 10
+    }
+  }, "\uD83D\uDCDD D\xE9tails position (admin uniquement)"), /*#__PURE__*/React.createElement("textarea", {
+    rows: "3",
+    placeholder: "ex : maison \xE0 \xE9tage, 2e \xE9tage, porte n\xB012, portail bleu, apr\xE8s la pharmacie\u2026",
+    value: o.detailsPosition || "",
+    onChange: e => set("detailsPosition", e.target.value)
   }), /*#__PURE__*/React.createElement("div", {
     className: "row",
     style: {
@@ -1203,6 +1214,7 @@ function ClientEdit({
     nom: "",
     contact: "",
     pos: null,
+    detailsPosition: "",
     ...client
   });
   return /*#__PURE__*/React.createElement("div", {
@@ -1236,6 +1248,18 @@ function ClientEdit({
       ...x,
       pos: p
     }))
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      marginTop: 10
+    }
+  }, "\uD83D\uDCDD D\xE9tails position (admin uniquement)"), /*#__PURE__*/React.createElement("textarea", {
+    rows: "3",
+    placeholder: "ex : maison \xE0 \xE9tage, 2e \xE9tage, porte n\xB012, portail bleu, apr\xE8s la pharmacie\u2026",
+    value: c.detailsPosition || "",
+    onChange: e => setC({
+      ...c,
+      detailsPosition: e.target.value
+    })
   }), /*#__PURE__*/React.createElement("div", {
     className: "row",
     style: {
@@ -1399,7 +1423,8 @@ function Admin() {
         }),
         nom: o.nom,
         contact: o.contact,
-        pos: o.pos
+        pos: o.pos,
+        detailsPosition: o.detailsPosition || ""
       };
       const i = d.orders.findIndex(x => x.id === o.id);
       const rec = {
@@ -1446,13 +1471,15 @@ function Admin() {
         }),
         nom: c.nom,
         contact: c.contact,
-        pos: c.pos
+        pos: c.pos,
+        detailsPosition: c.detailsPosition || ""
       };
       d.orders = d.orders.map(x => x.code === code && x.status !== "termine" ? {
         ...x,
         nom: c.nom,
         contact: c.contact,
         pos: c.pos,
+        detailsPosition: c.detailsPosition || "",
         maj: Date.now()
       } : x);
       return d;
@@ -1530,13 +1557,20 @@ function Admin() {
     }, "Ouvrir"), /*#__PURE__*/React.createElement("button", {
       className: "sec",
       onClick: () => print()
-    }, "\uD83D\uDDA8\uFE0F Imprimer"))), view.pos && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDDA8\uFE0F Imprimer"))), (view.pos || view.detailsPosition) && /*#__PURE__*/React.createElement("div", {
       className: "card noprint"
-    }, /*#__PURE__*/React.createElement("h2", null, "\uD83D\uDCCD Livraison"), /*#__PURE__*/React.createElement(MapPicker, {
+    }, /*#__PURE__*/React.createElement("h2", null, "\uD83D\uDCCD Livraison"), view.detailsPosition && /*#__PURE__*/React.createElement("p", {
+      style: {
+        whiteSpace: "pre-wrap",
+        background: "var(--bl)",
+        padding: 10,
+        borderRadius: 10
+      }
+    }, "\uD83D\uDCDD ", view.detailsPosition), view.pos && /*#__PURE__*/React.createElement(MapPicker, {
       pos: view.pos,
       readOnly: true,
       onChange: () => {}
-    }), /*#__PURE__*/React.createElement("a", {
+    }), view.pos && /*#__PURE__*/React.createElement("a", {
       className: "btn",
       style: {
         marginTop: 8
