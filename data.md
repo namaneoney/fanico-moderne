@@ -1,13 +1,13 @@
 # Données – Pressing Fanico Moderne
 
 > Fichier généré automatiquement par l'application. Ne modifiez pas le bloc JSON à la main.
-> Dernière mise à jour : 16/11/2026 02:56:59
+> Dernière mise à jour : 16/11/2026 02:58:23
 
 ## Commandes (1)
 
 | Référence | Client | Contact | Statut | Dépôt | Retrait | Détails | À payer | Reste | Code | Position |
 |---|---|---|---|---|---|---|---|---|---|---|
-| CMD-2026-00001 | Fanico | 0709405059 | En attente | 2026-11-16 | 2026-11-18 | 3 Draps, 5 hauts | 6300 | 3300 | FN-VEF6QA |  |
+| CMD-2026-00001 | Fanico | 0709405059 | Terminé | 2026-11-16 | 2026-11-18 | 3 Draps, 5 hauts | 6300 | 0 | FN-VEF6QA |  |
 
 ## Codes clients (1)
 
@@ -31,7 +31,7 @@
    "service": true,
    "prixService": "500",
    "aPayer": 6300,
-   "dejaPaye": "3000",
+   "dejaPaye": 6300,
    "nom": "Fanico",
    "contact": "0709405059",
    "depot": "2026-11-16",
@@ -41,9 +41,9 @@
     "5 hauts"
    ],
    "pos": null,
-   "status": "attente",
+   "status": "termine",
    "code": "FN-VEF6QA",
-   "maj": 1794797818306,
+   "maj": 1794797902966,
    "ref": "CMD-2026-00001",
    "codeFromLookup": false
   }
