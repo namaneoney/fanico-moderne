@@ -530,7 +530,18 @@ async function ghPut(c, data, sha, message) {
     })
   });
   if (!r.ok) {
-    const e = new Error("Écriture refusée (" + r.status + ")");
+    let gm = "";
+    try {
+      gm = (await r.json()).message || "";
+    } catch {}
+    const why = {
+      401: "jeton invalide ou expiré",
+      403: "le jeton n'a pas la permission « Contents : Read and write »",
+      404: "le jeton n'a pas accès à ce dépôt (Repository access → sélectionnez le dépôt)",
+      409: "conflit, réessayez",
+      422: "données refusées par GitHub"
+    }[r.status] || "erreur inconnue";
+    const e = new Error(`Écriture refusée (${r.status}) : ${why}${gm ? " — GitHub : " + gm : ""}`);
     e.status = r.status;
     throw e;
   }
@@ -1190,7 +1201,7 @@ function Admin() {
   const [msg, setMsg] = useState("");
   const toast = m => {
     setMsg(m);
-    setTimeout(() => setMsg(""), 3000);
+    setTimeout(() => setMsg(""), m.startsWith("❌") ? 9000 : 3000);
   };
   const refresh = async () => {
     setLoading(true);

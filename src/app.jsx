@@ -87,7 +87,17 @@ async function ghPut(c, data, sha, message) {
     headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${c.token}` },
     body: JSON.stringify({ message, content: toB64(toMd(data)), branch: c.branch, ...(sha ? { sha } : {}) })
   });
-  if (!r.ok) { const e = new Error("Écriture refusée (" + r.status + ")"); e.status = r.status; throw e; }
+  if (!r.ok) {
+    let gm = ""; try { gm = (await r.json()).message || ""; } catch {}
+    const why = {
+      401: "jeton invalide ou expiré",
+      403: "le jeton n'a pas la permission « Contents : Read and write »",
+      404: "le jeton n'a pas accès à ce dépôt (Repository access → sélectionnez le dépôt)",
+      409: "conflit, réessayez",
+      422: "données refusées par GitHub"
+    }[r.status] || "erreur inconnue";
+    const e = new Error(`Écriture refusée (${r.status}) : ${why}${gm ? " — GitHub : " + gm : ""}`); e.status = r.status; throw e;
+  }
 }
 // Lecture publique (client) : API GitHub puis, en secours, le fichier servi par l'hébergeur
 async function readPublic() {
@@ -375,7 +385,7 @@ function Admin() {
   const [edit, setEdit] = useState(null), [viewId, setViewId] = useState(null);
   const [q, setQ] = useState(""), [f, setF] = useState("tous");
   const [msg, setMsg] = useState("");
-  const toast = m => { setMsg(m); setTimeout(() => setMsg(""), 3000); };
+  const toast = m => { setMsg(m); setTimeout(() => setMsg(""), m.startsWith("❌") ? 9000 : 3000); };
 
   const refresh = async () => {
     setLoading(true);
